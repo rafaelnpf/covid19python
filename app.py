@@ -1,6 +1,3 @@
-
-
-
 # -*- coding: utf-8 -*-
 import dash
 import dash_core_components as dcc
@@ -9,6 +6,66 @@ import pandas as pd
 import numpy as np
 import datetime
 import plotly.express as px
+
+import csv
+import gzip
+import io
+import json
+from urllib.parse import urlencode, urljoin
+from urllib.request import Request, urlopen
+from urllib import request, parse
+from io import StringIO
+
+
+
+
+class BrasilIO:
+
+    base_url = "https://api.brasil.io/v1/"
+
+    def __init__(self, auth_token):
+        self.__auth_token = auth_token
+
+    @property
+    def headers(self):
+        return {
+            "User-Agent": "python-urllib/brasilio-client-0.1.0",
+        }
+        
+    @property
+    def api_headers(self):
+        data = self.headers
+        data.update({"Authorization": f"Token {self.__auth_token}"})
+        return data
+
+    def api_request(self, path, query_string=None):
+        url = urljoin(self.base_url, path)
+        if query_string:
+            url += "?" + urlencode(query_string)
+        request = Request(url, headers=self.api_headers)
+        response = urlopen(request)
+        return json.load(response)
+
+    def data(self, dataset_slug, table_name, filters=None):
+        url = f"dataset/{dataset_slug}/{table_name}/data/"
+        filters = filters or {}
+        filters["page"] = 1
+
+        finished = False
+        while not finished:
+            response = self.api_request(url, filters)
+            next_page = response.get("next", None)
+            for row in response["results"]:
+                yield row
+            filters = {}
+            url = next_page
+            finished = next_page is None
+
+    def download(self, dataset, table_name):
+        url = f"https://data.brasil.io/dataset/{dataset}/{table_name}.csv.gz"
+        request = Request(url, headers=self.headers)
+        response = urlopen(request)
+        return response
 
 
 
@@ -74,11 +131,64 @@ dfLeitosBahia = pd.read_csv(
     'https://raw.githubusercontent.com/galdir/covid19python/master/leitos-exclusivos-covid-ba.csv')
 
 
-dfLeitosSalvador = pd.read_csv(
+
+
+
+try:
+    urlSecretariaSaudeSalvador='http://www.saude.salvador.ba.gov.br/wp-content/graficos/graficosjson.php'
+    dataRequest={"tipo": "leitosUTIDisponiveisOcupadosAdulto"}
+    dataRequest = parse.urlencode(dataRequest).encode()
+    req =  request.Request(urlSecretariaSaudeSalvador, data=dataRequest) # this will make the method "POST"
+    resp=request.urlopen(req)
+    with resp as f:
+        texto=f.read().decode('utf-8')
+        csv=StringIO(texto)
+        dfLeitosSalvador = pd.read_csv(csv) 
+
+    dfLeitosSalvador.columns=['data','utis totais','utis ocupadas']
+
+
+    for indexA in dfLeitosSalvador.index:
+        texto=dfLeitosSalvador.loc[indexA,'data']
+        texto=texto.replace('/','-')
+        dfLeitosSalvador.loc[indexA,'data']=datetime.datetime.strptime(texto, '%d-%m-%Y').strftime('%Y-%m-%d')
+        if dfLeitosSalvador.loc[indexA,'utis ocupadas']==0:
+            print("removendo linha de utis zeradas")
+            dfLeitosSalvador.drop([dfLeitosSalvador.index[indexA]],inplace = True)
+        #if dfLeitosSalvador.loc[indexA,'data']==dfLeitosSalvador.loc[indexA-1,'data']:
+        #    print("data duplicada nas utis de salvador")
+        #    if (dfLeitosSalvador.loc[indexA,'utis ocupadas']==0):
+        #        dfLeitosSalvador.drop(dfLeitosSalvador.index[indexA])
+        #    else:
+        #        dfLeitosSalvador.drop(dfLeitosSalvador.index[indexA-1])
+            #dfLeitosSalvador.loc[index,'utis totais']=dfLeitosSalvador.loc[index-1,'utis totais']
+            #dfLeitosSalvador.loc[index,'utis ocupadas']=dfLeitosSalvador.loc[index-1,'utis ocupadas']
+
+except Exception as e:
+    print("ocorreu um erro ao acessar Secretaria de Saude Salvador")
+    print(e)
+    dfLeitosSalvador = pd.read_csv(
     #'leitos-exclusivos-covid-ba.csv')
     'https://raw.githubusercontent.com/galdir/covid19python/master/leitos-exclusivos-covid-ssa.csv')
+    dfLeitosSalvador.columns=['data','leitos ocupados (uti+geral)','leitos totais (uti+geral)','utis ocupadas','utis totais','','']
 
-dfCities=pd.read_csv('https://raw.githubusercontent.com/wcota/covid19br/master/cases-brazil-cities-time.csv')
+
+dfLeitosSalvador.head()
+
+#dfCities=pd.read_csv('https://raw.githubusercontent.com/wcota/covid19br/master/cases-brazil-cities-time.csv')
+#dfCities=pd.read_csv('https://data.brasil.io/dataset/covid19/caso_full.csv.gz')
+
+api = BrasilIO("8b21074271c5a273bfd1a82e2eda45198827c1a8")
+dataset_slug = "covid19"
+table_name = "caso_full"
+filters = {"state": "BA", "city": "Salvador"}
+data = api.data(dataset_slug, table_name, filters)
+dfCities=pd.DataFrame()
+for row in data:
+    rowdf=pd.DataFrame.from_dict(row, orient='index')
+    dfCities=pd.concat([dfCities,rowdf.transpose()], ignore_index=True)
+
+
 
 # df=df.drop(df[df.date=='2020-04-29'].index)
 
@@ -87,6 +197,13 @@ statesClean = []
 for s in states:
     if s != 'TOTAL':
         statesClean.append(s)
+
+
+
+
+
+
+
 
 # df.drop
 
@@ -173,9 +290,15 @@ today = datetime.datetime.now()
 dayMesAtras=today.day
 if(dayMesAtras>28):
     dayMesAtras=28
-
-umMesAtras = datetime.datetime(today.year, today.month-1, dayMesAtras)
-doisMesesAtras = datetime.datetime(today.year, today.month-2, dayMesAtras)
+if(today.month==1):
+    mesAtras=12
+    anoMesAtras=today.year-1
+else:
+    mesAtras=today.month-1
+    anoMesAtras=today.year
+    
+umMesAtras = datetime.datetime(anoMesAtras, mesAtras, dayMesAtras)
+#doisMesesAtras = datetime.datetime(today.year, today.month-2, dayMesAtras)
 
 
 #x=statesClean,
@@ -482,7 +605,7 @@ app.layout = html.Div(className='container', children=[
                             ),
                             dict(
                                 x=dfLeitosSalvador['data'],
-                                y=dfLeitosSalvador['uti ocupadas'],
+                                y=dfLeitosSalvador['utis ocupadas'],
                                 name='UTIs ocupadas'
                             )
                             
@@ -519,8 +642,8 @@ app.layout = html.Div(className='container', children=[
                     figure={
                         'data': [
                             dict(
-                                x=dfCities[dfCities['city'] == 'Salvador/BA']['date'],
-                                y=dfCities[dfCities['city'] == 'Salvador/BA']['totalCases'],
+                                x=dfCities[dfCities['city'] == 'Salvador']['date'],
+                                y=dfCities[dfCities['city'] == 'Salvador']['last_available_confirmed'],
                                 name='Acumulado Salvador'
                             )
                         ],
@@ -528,7 +651,7 @@ app.layout = html.Div(className='container', children=[
                             xaxis={'type': 'line', 'title': 'data'},
                             yaxis={
                                 'title': 'casos',
-                                'range': [0, dfCities.query("city=='Salvador/BA'")['totalCases'].max()],
+                                'range': [0, dfCities.query("city=='Salvador'")['last_available_confirmed'].max()],
                             },
                             #title='Total de Casos na Bahia',
                             margin={'l':40,'b':80,'r':40,'t': 40},
@@ -544,19 +667,19 @@ app.layout = html.Div(className='container', children=[
                     figure={
                         'data': [
                             dict(
-                                x=dfCities[dfCities['city'] == 'Salvador/BA']['date'],
+                                x=dfCities[dfCities['city'] == 'Salvador']['date'],
                                 # newCases is collumn 6
 
-                                y=dfCities[dfCities['city'] == 'Salvador/BA']['newCases'],
+                                y=dfCities[dfCities['city'] == 'Salvador']['new_confirmed'],
                                 name='Novos Casos',
                                 type='bar'
                             ),
                             dict(
-                                x=dfCities[dfCities['city'] == 'Salvador/BA']['date'],
+                                x=dfCities[dfCities['city'] == 'Salvador']['date'],
                                 # newCases is collumn 6
 
-                                y=dfCities[dfCities['city'] == 'Salvador/BA']['newCases'].rolling(
-                                    window=7).mean(),
+                                y=dfCities[dfCities['city'] == 'Salvador']['new_confirmed'].rolling(
+                                    window=7).mean().shift(-6),
                                 name='Média Movel de 7 Dias',
                                 type='line'
                             )
@@ -587,8 +710,8 @@ app.layout = html.Div(className='container', children=[
                     figure={
                         'data': [
                             dict(
-                                x=dfCities[dfCities['city'] == 'Salvador/BA']['date'],
-                                y=dfCities[dfCities['city'] == 'Salvador/BA']['deaths'],
+                                x=dfCities[dfCities['city'] == 'Salvador']['date'],
+                                y=dfCities[dfCities['city'] == 'Salvador']['last_available_deaths'],
                                 name='Acumulado Salvador'
                             )
                         ],
@@ -596,7 +719,7 @@ app.layout = html.Div(className='container', children=[
                             xaxis={'type': 'line', 'title': 'data'},
                             yaxis={
                                 'title': 'casos',
-                                'range': [0, dfCities.query("city=='Salvador/BA'")['deaths'].max()],
+                                'range': [0, dfCities.query("city=='Salvador'")['last_available_deaths'].max()],
                             },
                             #title='Total de Casos na Bahia',
                             margin={'l':40,'b':80,'r':40,'t': 40},
@@ -612,19 +735,19 @@ app.layout = html.Div(className='container', children=[
                     figure={
                         'data': [
                             dict(
-                                x=dfCities[dfCities['city'] == 'Salvador/BA']['date'],
+                                x=dfCities[dfCities['city'] == 'Salvador']['date'],
                                 # newCases is collumn 6
 
-                                y=dfCities[dfCities['city'] == 'Salvador/BA']['newDeaths'],
+                                y=dfCities[dfCities['city'] == 'Salvador']['new_deaths'],
                                 name='Novas Mortes',
                                 type='bar'
                             ),
                             dict(
-                                x=dfCities[dfCities['city'] == 'Salvador/BA']['date'],
+                                x=dfCities[dfCities['city'] == 'Salvador']['date'],
                                 # newCases is collumn 6
 
-                                y=dfCities[dfCities['city'] == 'Salvador/BA']['newDeaths'].rolling(
-                                    window=7).mean(),
+                                y=dfCities[dfCities['city'] == 'Salvador']['new_deaths'].rolling(
+                                    window=7).mean().shift(-6),
                                 name='Média Movel de 7 Dias',
                                 type='line'
                             )

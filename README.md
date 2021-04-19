@@ -8,20 +8,19 @@
 
 ## 💻 Projeto
 
-A pandemia do novo Corona Vírus, que nos atingiu em escala mundial, mostra o poder das informações. Todos os dias, buscamos saber de forma rápida e confiável números e notícias que possam nos atualizar sobre a situação que afeta a todos de modo geral.
-Pensando na grande demanda de busca trago uma ferramenta funcional, que pode trazer com rapidez e praticidade, números confiáveis a respeito da contagem de pessoa infectadas, óbitos e leitos ocupados e disponíveis. 
-Contagem referente, por hora, a cidade de Salvador e ao Estado da Bahia.
+O enfretamente da pandemia do novo Corona Vírus é feito em diversos campos incluindo o da informação. Todos os dias, buscamos saber de forma rápida e confiável números e notícias que possam nos atualizar sobre a situação da pandemia.
+Pensando na análise temporal da propagação do novo Corona Vírus em Salvador e na Bahia como um todo, desenvolvi essa ferramenta que pode trazer, com rapidez e praticidade, números confiáveis a respeito da contagem de pessoa infectadas, óbitos e leitos ocupados e disponíveis. 
 
-The pandemic of the new Corona Virus, which hit us on a global scale, shows the power of information.  Every day, we seek to quickly and reliably know numbers and news that can update us on the situation that affects everyone in general.
-Thinking about the great demand for search I bring a functional tool, which can quickly and easily bring reliable numbers regarding the count of infected people, deaths and available and occupied beds.
-Counting, for now, the city of Salvador and the State of Bahia.
+The confrontation of the new Corona Virus pandemic is carried out in several fields, including information. Every day, we seek to quickly and reliably know numbers and news that can update us on the situation of the pandemic.
+Thinking about the temporal analysis of the spread of the new Corona Virus in Salvador and Bahia as a whole, I developed this tool that can bring, quickly and conveniently, reliable numbers regarding the count of infected people, deaths and occupied and available beds.
 
 ## 🚀 Tecnologias
 
 Esse projeto foi desenvolvido com as seguintes tecnologias:
 
+- [Dash](https://dash.plotly.com/)
 - [Python](https://www.python.org/)
-- [CSS](https://cssreference.io/)
+
 
 ## 📝 Licença
 
@@ -29,4 +28,4 @@ Esse projeto está sob a licença MIT. Veja o arquivo [LICENSE](LICENSE) para ma
 
 ---
 
-Feito por [Rafael Nunes.](https://github.com/rafaelnpf)
+Projeto e implementação por [Galdir Reges.](https://github.com/galdir) com apoio no README por [Rafael Nunes.](https://github.com/rafaelnpf)
